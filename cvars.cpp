@@ -1,17 +1,16 @@
-#include "icvar.h"
+#include <cstdint>
 #include <map>
 #include <string>
 #include <sstream>
 #include <fstream>
 #include <vector>
+#include "icvar.h"
+#include "schemasystem/schemasystem.h"
 
 static_assert(sizeof(ConCommandHandle) == 8, "unexpected size for ConCommandHandle");
 static_assert(sizeof(ConVarHandle) == 8, "unexpected size for ConVarHandle");
 
-static ConCommandRefAbstract cvar_unhide_ref;
-static void cvar_unhide_callback(const CCommand& args);
-ConCommand cvar_unhide(&cvar_unhide_ref, "cvar_unhide", cvar_unhide_callback);
-static void cvar_unhide_callback(const CCommand& args)
+CON_COMMAND_F(cvar_unhide, "Strip cvars of flags that would make them inaccessible.", FCVAR_NONE)
 {
 	uint64 flagsToRemove = (FCVAR_HIDDEN | FCVAR_DEVELOPMENTONLY | FCVAR_MISSING3);
 	int unhiddenConCmds = 0;
@@ -148,6 +147,8 @@ static std::string ConvarFlagsString(int unFlags)
 {
 	std::vector<std::string> flags;
 
+	if (unFlags & FCVAR_LINKED_CONCOMMAND)
+		flags.push_back("linked");
 	if (unFlags & FCVAR_DEVELOPMENTONLY)
 		flags.push_back("devonly");
 	if (unFlags & FCVAR_GAMEDLL)
@@ -166,8 +167,12 @@ static std::string ConvarFlagsString(int unFlags)
 		flags.push_back("nf");
 	if (unFlags & FCVAR_USERINFO)
 		flags.push_back("user");
+	if (unFlags & FCVAR_MISSING0)
+		flags.push_back("missing0");
 	if (unFlags & FCVAR_UNLOGGED)
-		flags.push_back("unlogged");
+		flags.push_back("nolog");
+	if (unFlags & FCVAR_MISSING1)
+		flags.push_back("missing1");
 	if (unFlags & FCVAR_REPLICATED)
 		flags.push_back("rep");
 	if (unFlags & FCVAR_CHEAT)
@@ -178,18 +183,28 @@ static std::string ConvarFlagsString(int unFlags)
 		flags.push_back("demo");
 	if (unFlags & FCVAR_DONTRECORD)
 		flags.push_back("norecord");
+	if (unFlags & FCVAR_MISSING2)
+		flags.push_back("missing2");
 	if (unFlags & FCVAR_RELEASE)
 		flags.push_back("release");
+	if (unFlags & FCVAR_MENUBAR_ITEM)
+		flags.push_back("menubar_item");
+	if (unFlags & FCVAR_MISSING3)
+		flags.push_back("missing3");
 	if (unFlags & FCVAR_NOT_CONNECTED)
-		flags.push_back("notconnected");
+		flags.push_back("disconnected");
+	if (unFlags & FCVAR_VCONSOLE_FUZZY_MATCHING)
+		flags.push_back("vconsole_fuzzy");
 	if (unFlags & FCVAR_SERVER_CAN_EXECUTE)
 		flags.push_back("server_can_execute");
 	if (unFlags & FCVAR_SERVER_CANNOT_QUERY)
-		flags.push_back("server_cannot_query");
+		flags.push_back("server_cant_query");
+	if (unFlags & FCVAR_VCONSOLE_SET_FOCUS)
+		flags.push_back("vconsole_set_focus");
 	if (unFlags & FCVAR_CLIENTCMD_CAN_EXECUTE)
 		flags.push_back("clientcmd_can_execute");
 	if (unFlags & FCVAR_EXECUTE_PER_TICK)
-		flags.push_back("per_tick");
+		flags.push_back("execute_per_tick");
 
 	std::string result;
 	bool bFirst = true;
@@ -222,10 +237,7 @@ std::string MarkdownEscape(const std::string& str)
 	return escaped;
 }
 
-static ConCommandRefAbstract cvarlist_md_ref;
-static void cvarlist_md_callback(const CCommand& args);
-ConCommand cvarlist_md(&cvarlist_md_ref, "cvarlist_md", cvarlist_md_callback, "List all convars/concmds in Markdown format. Format: [hidden]");
-static void cvarlist_md_callback(const CCommand& args)
+CON_COMMAND_F(cvarlist_md, "List all convars/concmds in Markdown format. Format: [hidden]", FCVAR_NONE)
 {
 	std::map<std::string, ConEntry_t> allEntries;
 
@@ -258,7 +270,7 @@ static void cvarlist_md_callback(const CCommand& args)
 	auto bShowHidden = !V_stricmp(args.Arg(1), "hidden");
 
 	CUtlString outputPath(Plat_GetGameDirectory());
-	outputPath.Append("\\csgo\\cvarlist.md");
+	outputPath.Append("\\citadel\\cvarlist.md");
 	outputPath.FixSlashes();
 
 	std::ofstream file(outputPath.GetForModify());
@@ -293,4 +305,8 @@ static void cvarlist_md_callback(const CCommand& args)
 	file.close();
 
 	Msg("Wrote %d entries to %s\n", nWritten, outputPath.GetForModify());
+}
+
+CON_COMMAND_F(dump_fields, "Dump entity schema fields. Format: <ent index>", FCVAR_NONE)
+{
 }

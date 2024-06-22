@@ -13,7 +13,7 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Tier1 Source Files">
+    <Filter Include="SDK Source Files">
       <UniqueIdentifier>{bb204cbb-2d78-48f9-9a97-751c3968541f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -24,14 +24,14 @@
     <ClCompile Include="cvars.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="sdk\tier1\convar.cpp">
-      <Filter>Tier1 Source Files</Filter>
+    <ClCompile Include="..\hl2sdk-deadlock\tier1\convar.cpp">
+      <Filter>SDK Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="sdk\tier1\strtools.cpp">
-      <Filter>Tier1 Source Files</Filter>
+    <ClCompile Include="..\hl2sdk-deadlock\tier1\strtools.cpp">
+      <Filter>SDK Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="sdk\tier1\characterset.cpp">
-      <Filter>Tier1 Source Files</Filter>
+    <ClCompile Include="..\hl2sdk-deadlock\interfaces\interfaces.cpp">
+      <Filter>SDK Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

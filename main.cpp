@@ -1,28 +1,18 @@
 #include <cstdint>
 #include "steam/steamtypes.h"
 #include "appframework/IAppSystem.h"
+#include "eiface.h"
 #include "filesystem.h"
 #include "icvar.h"
 #include "interface.h"
+#include "vscript/ivscript.h"
 
 CreateInterfaceFn g_pfnServerCreateInterface = NULL;
 
-typedef bool(*AppSystemConnectFn)(IAppSystem *appSystem, CreateInterfaceFn factory);
-static AppSystemConnectFn g_pfnServerConfigConnect = NULL;
+bool(*g_pfnServerConfigConnect)(IAppSystem *appSystem, CreateInterfaceFn factory);
+float(*g_pfnServerConfigGetTickInterval)(const ISource2ServerConfig *config);
 
-class IScriptVM;
-class IScriptManager;
-
-enum ScriptLanguage_t
-{
-	SL_NONE,
-	SL_LUA,
-
-	SL_DEFAULT = SL_LUA
-};
-
-typedef IScriptVM*(*ScriptManagerCreateVMFn)(IScriptManager *manager, ScriptLanguage_t language);
-static ScriptManagerCreateVMFn g_pfnScriptManagerCreateVM = NULL;
+IScriptVM*(*g_pfnScriptManagerCreateVM)(IScriptManager *manager, ScriptLanguage_t language);
 
 template<typename ReturnType, typename ...ArgTypes>
 static auto PatchVtable(void *object, size_t index, ReturnType(*hook)(ArgTypes...))
@@ -46,9 +36,17 @@ static auto PatchVtable(void *object, size_t index, ReturnType(*hook)(ArgTypes..
 	return original;
 }
 
+static void SendToServerConsoleAsClient(int slot, const char *commandString)
+{
+	if (auto command = CCommand(); command.Tokenize(commandString))
+		g_pSource2GameClients->ClientCommand(slot, command);
+}
+
 static IScriptVM *CreateVM(IScriptManager *manager, ScriptLanguage_t language)
 {
-	return g_pfnScriptManagerCreateVM(manager, SL_LUA);
+	auto *vm = g_pfnScriptManagerCreateVM(manager, SL_LUA);
+	//ScriptRegisterFunction(vm, SendToServerConsoleAsClient, "Run a server command as if sent by the given client");
+	return vm;
 }
 
 static bool Connect(IAppSystem* appSystem, CreateInterfaceFn factory)
@@ -57,14 +55,25 @@ static bool Connect(IAppSystem* appSystem, CreateInterfaceFn factory)
 
 	ConnectInterfaces(&factory, 1);
 
-	ConVar_Register(FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE | FCVAR_GAMEDLL);
+	ConVar_Register(FCVAR_RELEASE | FCVAR_GAMEDLL);
 
 	g_pfnScriptManagerCreateVM = PatchVtable(g_pScriptManager, 11, CreateVM);
 
 	return result;
 }
 
-#undef CreateInterface
+float GetTickInterval(const ISource2ServerConfig *config)
+{
+	// override if tick rate specified in command line
+	if (CommandLine()->CheckParm("-tickrate"))
+	{
+		const auto tickrate = CommandLine()->ParmValue("-tickrate", 0);
+		if (tickrate > 10)
+			return 1.0f / tickrate;
+	}
+
+	return g_pfnServerConfigGetTickInterval(config);
+}
 
 DLL_EXPORT void *CreateInterface(const char *pName, int *pReturnCode)
 {
@@ -72,8 +81,12 @@ DLL_EXPORT void *CreateInterface(const char *pName, int *pReturnCode)
 	{
 		// Engine should stop joining VAC-secured servers with a modified gameinfo,
 		// this is to be extra cautious.
-		auto insecure = CommandLine()->HasParm("-insecure");
-		if (!insecure)
+		if (CommandLine()->HasParm(CUtlSymbolLarge_Hash(false, "-secretchinesemode", 18)))
+		{
+			Plat_FatalErrorFunc("ICommandLine::HasParm vtable index is out of date, unable to ensure -insecure.\n\nExiting for safety.");
+		}
+
+		if (!CommandLine()->HasParm(CUtlSymbolLarge_Hash(false, "-insecure", 9)))
 		{
 			Plat_FatalErrorFunc("Refusing to load cvar-unhide-s2 in secure mode.\n\nAdd -insecure to the game's launch options and restart the game.");
 		}
@@ -98,6 +111,7 @@ DLL_EXPORT void *CreateInterface(const char *pName, int *pReturnCode)
 	if (strcmp(pName, "Source2ServerConfig001") == 0)
 	{
 		g_pfnServerConfigConnect = PatchVtable(original, 0, Connect);
+		g_pfnServerConfigGetTickInterval = PatchVtable(original, 13, GetTickInterval);
 	}
 
 	return original;

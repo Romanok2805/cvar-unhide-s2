@@ -27,10 +27,10 @@
     <ClCompile Include="..\hl2sdk-deadlock\tier1\convar.cpp">
       <Filter>SDK Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\hl2sdk-deadlock\tier1\strtools.cpp">
-      <Filter>SDK Source Files</Filter>
+    <ClCompile Include="interfaces.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\hl2sdk-deadlock\interfaces\interfaces.cpp">
+    <ClCompile Include="..\hl2sdk-deadlock\tier1\generichash.cpp">
       <Filter>SDK Source Files</Filter>
     </ClCompile>
   </ItemGroup>

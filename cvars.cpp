@@ -7,26 +7,26 @@
 #include "icvar.h"
 #include "schemasystem/schemasystem.h"
 
-static_assert(sizeof(ConCommandHandle) == 8, "unexpected size for ConCommandHandle");
-static_assert(sizeof(ConVarHandle) == 8, "unexpected size for ConVarHandle");
+static_assert(sizeof(ConCommandRef) == 8, "unexpected size for ConCommandRef");
+static_assert(sizeof(ConVarRef) == 8, "unexpected size for ConVarRef");
 
 CON_COMMAND_F(cvar_unhide, "Strip cvars of flags that would make them inaccessible.", FCVAR_NONE)
 {
-	uint64 flagsToRemove = (FCVAR_HIDDEN | FCVAR_DEVELOPMENTONLY | FCVAR_MISSING3);
+	uint64 flagsToRemove = FCVAR_HIDDEN | FCVAR_DEVELOPMENTONLY;
 	int unhiddenConCmds = 0;
 	int unhiddenConVars = 0;
 
-	ConCommandHandle cmdHandle{};
-	auto invalidConcmd = g_pCVar->GetCommand(cmdHandle);
+	ConCommandRef cmdHandle{};
+	auto invalidConcmd = g_pCVar->GetConCommandData(cmdHandle);
 	int cmdIdx = 0;
 	for (;;)
 	{
-		cmdHandle.Set(cmdIdx++);
-		auto concmd = g_pCVar->GetCommand(cmdHandle);
+		cmdHandle = ConCommandRef(cmdIdx++);
+		auto concmd = g_pCVar->GetConCommandData(cmdHandle);
 		if (concmd == invalidConcmd)
 			break;
 
-		if (concmd->GetFlags() & flagsToRemove)
+		if (concmd->IsFlagSet(flagsToRemove))
 		{
 			Msg("- %s\n", concmd->GetName());
 			concmd->RemoveFlags(flagsToRemove);
@@ -35,20 +35,20 @@ CON_COMMAND_F(cvar_unhide, "Strip cvars of flags that would make them inaccessib
 	}
 	ConColorMsg(Color(255, 0, 255, 255), "Removed hidden flags from %d concommands\n", unhiddenConCmds);
 
-	ConVarHandle cvarHandle{};
-	auto invalidCvar = g_pCVar->GetConVar(cvarHandle);
+	ConVarRef cvarHandle{};
+	auto invalidCvar = g_pCVar->GetConVarData(cvarHandle);
 	int cvarIdx = 0;
 	for (;;)
 	{
-		cvarHandle.Set(cvarIdx++);
-		auto convar = g_pCVar->GetConVar(cvarHandle);
+		cvarHandle = ConVarRef(cvarIdx++);
+		auto convar = g_pCVar->GetConVarData(cvarHandle);
 		if (convar == invalidCvar)
 			break;
 
-		if (convar->flags & flagsToRemove)
+		if (convar->IsFlagSet(flagsToRemove))
 		{
-			Msg("- %s\n", convar->m_pszName);
-			convar->flags &= ~flagsToRemove;
+			Msg("- %s\n", convar->GetName());
+			convar->RemoveFlags(flagsToRemove);
 			unhiddenConVars++;
 		}
 	}
@@ -111,13 +111,13 @@ std::string FormatCVValue(const CVValue_t& value, EConVarType type) {
 		oss << value.m_u64Value;
 		break;
 	case EConVarType_Float32:
-		oss << value.m_flValue;
+		oss << value.m_fl32Value;
 		break;
 	case EConVarType_Float64:
-		oss << value.m_dbValue;
+		oss << value.m_fl64Value;
 		break;
 	case EConVarType_String:
-		oss << (value.m_szValue != nullptr ? value.m_szValue : "");
+		oss << (value.m_StringValue.Get() != nullptr ? value.m_StringValue.Get() : "");
 		break;
 	case EConVarType_Color:
 		oss << value.m_clrValue.r() << " " << value.m_clrValue.g() << " "
@@ -167,12 +167,12 @@ static std::string ConvarFlagsString(int unFlags)
 		flags.push_back("nf");
 	if (unFlags & FCVAR_USERINFO)
 		flags.push_back("user");
-	if (unFlags & FCVAR_MISSING0)
-		flags.push_back("missing0");
+	if (unFlags & FCVAR_REFERENCE)
+		flags.push_back("reference");
 	if (unFlags & FCVAR_UNLOGGED)
 		flags.push_back("nolog");
-	if (unFlags & FCVAR_MISSING1)
-		flags.push_back("missing1");
+	if (unFlags & FCVAR_INITIAL_SETVALUE)
+		flags.push_back("initial_setvalue");
 	if (unFlags & FCVAR_REPLICATED)
 		flags.push_back("rep");
 	if (unFlags & FCVAR_CHEAT)
@@ -183,14 +183,14 @@ static std::string ConvarFlagsString(int unFlags)
 		flags.push_back("demo");
 	if (unFlags & FCVAR_DONTRECORD)
 		flags.push_back("norecord");
-	if (unFlags & FCVAR_MISSING2)
-		flags.push_back("missing2");
+	if (unFlags & FCVAR_PERFORMING_CALLBACKS)
+		flags.push_back("performing_callbacks");
 	if (unFlags & FCVAR_RELEASE)
 		flags.push_back("release");
 	if (unFlags & FCVAR_MENUBAR_ITEM)
 		flags.push_back("menubar_item");
-	if (unFlags & FCVAR_MISSING3)
-		flags.push_back("missing3");
+	if (unFlags & FCVAR_COMMANDLINE_ENFORCED)
+		flags.push_back("commandline_enforced");
 	if (unFlags & FCVAR_NOT_CONNECTED)
 		flags.push_back("disconnected");
 	if (unFlags & FCVAR_VCONSOLE_FUZZY_MATCHING)
@@ -241,30 +241,30 @@ CON_COMMAND_F(cvarlist_md, "List all convars/concmds in Markdown format. Format:
 {
 	std::map<std::string, ConEntry_t> allEntries;
 
-	ConCommandHandle cmdHandle{};
-	auto invalidConcmd = g_pCVar->GetCommand(cmdHandle);
+	ConCommandRef cmdHandle{};
+	auto invalidConcmd = g_pCVar->GetConCommandData(cmdHandle);
 	int cmdIdx = 0;
 	for (;;)
 	{
-		cmdHandle.Set(cmdIdx++);
-		auto concmd = g_pCVar->GetCommand(cmdHandle);
+		cmdHandle = ConCommandRef(cmdIdx++);
+		auto concmd = g_pCVar->GetConCommandData(cmdHandle);
 		if (concmd == invalidConcmd)
 			break;
 
 		allEntries[concmd->GetName()] = ConEntry_t(concmd->GetName(), nullptr, EConVarType_Invalid, concmd->GetFlags(), concmd->GetHelpText());
 	}
 
-	ConVarHandle cvarHandle{};
-	auto invalidCvar = g_pCVar->GetConVar(cvarHandle);
+	ConVarRef cvarHandle{};
+	auto invalidCvar = g_pCVar->GetConVarData(cvarHandle);
 	int cvarIdx = 0;
 	for (;;)
 	{
-		cvarHandle.Set(cvarIdx++);
-		auto convar = g_pCVar->GetConVar(cvarHandle);
+		cvarHandle = ConVarRef(cvarIdx++);
+		auto convar = g_pCVar->GetConVarData(cvarHandle);
 		if (convar == invalidCvar)
 			break;
 
-		allEntries[convar->m_pszName] = ConEntry_t(convar->m_pszName, convar->m_cvvDefaultValue, convar->m_eVarType, convar->flags, convar->m_pszHelpString);
+		allEntries[convar->GetName()] = ConEntry_t(convar->GetName(), convar->DefaultValue(), convar->GetType(), convar->GetFlags(), convar->GetHelpText());
 	}
 
 	auto bShowHidden = !V_stricmp(args.Arg(1), "hidden");
@@ -284,7 +284,7 @@ CON_COMMAND_F(cvarlist_md, "List all convars/concmds in Markdown format. Format:
 		const std::string& name = pair.first;
 		auto cmd = pair.second;
 
-		if (!bShowHidden && (cmd.flags & (FCVAR_DEVELOPMENTONLY | FCVAR_HIDDEN | FCVAR_MISSING3)))
+		if (!bShowHidden && (cmd.flags & (FCVAR_DEVELOPMENTONLY | FCVAR_HIDDEN)))
 			continue;
 
 		auto flagsStr = ConvarFlagsString(cmd.flags);

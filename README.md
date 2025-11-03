@@ -47,6 +47,32 @@ If you want to disable cvar-unhide-s2:
 - Remove the `Game	csgo/addons` line from the gameinfo.gi file.
 - Remove `-insecure` from the game's launch options.
 
+## Building
+
+The project is automatically built using GitHub Actions on every push and pull request.
+
+### Automated Builds
+
+- **Build workflow**: Automatically builds Debug and Release configurations on push/PR to main branch
+- **Release workflow**: Automatically creates releases when version tags (e.g., `v1.0.0`) are pushed
+
+Download pre-built binaries from the [Releases](../../releases) page.
+
+### Manual Build
+
+Requirements:
+- Visual Studio 2022 with C++ development tools
+- Git (for submodules)
+
+Steps:
+1. Clone the repository with submodules:
+   ```bash
+   git clone --recurse-submodules https://github.com/Romanok2805/cvar-unhide-s2.git
+   ```
+2. Open `cvar-unhide-s2.sln` in Visual Studio
+3. Build the solution (Configuration: Release, Platform: x64)
+4. The output will be in `addons/bin/win64/server.dll`
+
 ## Available commands
 
 If you installed the plugin correctly, you should now be able to use the following commands in the console:

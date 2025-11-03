@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Restore NuGet packages
+      run: nuget restore cvar-unhide-s2.sln
+
+    - name: Build
+      run: msbuild cvar-unhide-s2.sln /p:Configuration=${{ matrix.configuration }} /p:Platform=x64 /m
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: cvar-unhide-s2-${{ matrix.configuration }}
+        path: addons/
+        if-no-files-found: error

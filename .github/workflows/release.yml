@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Restore NuGet packages
+      run: nuget restore cvar-unhide-s2.sln
+
+    - name: Build Release
+      run: msbuild cvar-unhide-s2.sln /p:Configuration=Release /p:Platform=x64 /m
+
+    - name: Create release archive
+      run: |
+        Compress-Archive -Path addons -DestinationPath cvar-unhide-s2.zip
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: cvar-unhide-s2.zip
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
